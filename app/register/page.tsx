@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase"
 
@@ -16,6 +17,8 @@ export default function RegisterPage() {
     const [password, setPassword] = useState("")
     const [confirmPassword, setConfirmPassword] = useState("")
     const [isLoading, setIsLoading] = useState(false)
+    const [showEmailAlert, setShowEmailAlert] = useState(false)
+    const [registeredEmail, setRegisteredEmail] = useState("")
     const router = useRouter()
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -46,29 +49,20 @@ export default function RegisterPage() {
             })
 
             if (error) {
-                console.error("Error al crear cuenta:", error)
-                toast.error(error.message || "Error al crear cuenta")
+                toast.error(error.message || "Error al crear cuenta", {
+                    description: error instanceof Error ? error.message : "Error desconocido"
+                })
                 return
             }
 
-            console.log("Cuenta creada exitosamente", data)
-            toast.success("Cuenta creada exitosamente")
-
-            // Iniciar sesión automáticamente
-            const { error: signInError } = await supabase.auth.signInWithPassword({
-                email,
-                password,
+            toast.success("Cuenta creada exitosamente", {
+                description: `Se ha enviado un email a ${data.user?.email}`
             })
 
-            if (signInError) {
-                console.error("Error al iniciar sesión automáticamente:", signInError)
-                toast.error("Cuenta creada pero hubo un problema al iniciar sesión automáticamente")
-                router.push("/login")
-                return
-            }
+            // Guardar el email registrado y mostrar alerta
+            setRegisteredEmail(email)
+            setShowEmailAlert(true)
 
-            // Redirigir al dashboard
-            router.push("/dashboard")
         } catch (error) {
             console.error("Error inesperado: ", error)
             toast.error("Error al conectar con el servidor")
@@ -77,8 +71,63 @@ export default function RegisterPage() {
         }
     }
 
+    const handleConfirmation = async () => {
+        try {
+            // Iniciar sesión automáticamente
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: registeredEmail,
+                password,
+            })
+
+            if (error) {
+                toast.error("Error al iniciar sesión", {
+                    description: error.message
+                })
+                return
+            }
+
+            console.log("Inicio de sesión exitoso tras confirmar email:", data.user?.email)
+            // Redirigir al dashboard
+            router.push("/dashboard")
+        } catch (error) {
+            console.error("Error inesperado:", error)
+            toast.error("Error al iniciar sesión")
+        }
+    }
+
+    const goToGmail = () => {
+        window.open('https://mail.google.com', '_blank')
+    }
+
     return (
         <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+            <AlertDialog open={showEmailAlert} onOpenChange={setShowEmailAlert}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirma tu correo electrónico</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Hemos enviado un correo de confirmación a <strong>{registeredEmail}</strong>.
+                            Por favor, revisa tu bandeja de entrada y haz clic en el enlace de confirmación.
+                            Después de confirmar, puedes continuar.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex flex-col sm:flex-row gap-2">
+                        <Button
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                            onClick={goToGmail}
+                        >
+                            Ir a Gmail
+                        </Button>
+                        <div className="flex justify-end gap-2 w-full">
+                            <AlertDialogCancel>Cerrar</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleConfirmation}>
+                                He confirmado mi email
+                            </AlertDialogAction>
+                        </div>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
             <Card className="w-full max-w-md">
                 <CardHeader className="space-y-1">
                     <CardTitle className="text-2xl font-bold">Crear Cuenta</CardTitle>

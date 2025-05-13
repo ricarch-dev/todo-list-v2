@@ -28,16 +28,17 @@ export default function LoginPage() {
             })
 
             if (error) {
-                console.error("Error de autenticación:", error)
                 toast.error(error.message || "Error al iniciar sesión")
             } else {
-                console.log("Inicio de sesión exitoso, usuario:", data.user?.id)
-                toast.success("Inicio de sesión exitoso")
+                toast.success("Inicio de sesión exitoso", {
+                    description: `Bienvenido ${data.user?.email}`
+                })
                 router.push("/dashboard")
             }
         } catch (error) {
-            console.error("Error inesperado:", error)
-            toast.error("Error al conectar con el servidor")
+            toast.error("Error inesperado", {
+                description: error instanceof Error ? error.message : "Error desconocido"
+            })
         } finally {
             setIsLoading(false)
         }
