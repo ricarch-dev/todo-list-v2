@@ -25,15 +25,15 @@ export default async function DashboardPage() {
                         </TabsContent>
 
                         <TabsContent value="pendientes">
-                            <TodoList filter="pendientes" />
+                            <TodoList filter="pending" />
                         </TabsContent>
 
                         <TabsContent value="completadas">
-                            <TodoList filter="completadas" />
+                            <TodoList filter="completed" />
                         </TabsContent>
 
                         <TabsContent value="alta">
-                            <TodoList filter="alta" />
+                            <TodoList filter="high" />
                         </TabsContent>
                     </Tabs>
                 </div>

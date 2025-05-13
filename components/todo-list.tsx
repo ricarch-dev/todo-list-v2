@@ -28,6 +28,7 @@ import { useRouter } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
 import { getCategoryColor } from "@/lib/utils"
 import { getPriorityColor } from "@/lib/utils"
+import TodoSkeleton from "./todo-skeleton"
 
 interface TodoListProps {
     filter: "todos" | "pending" | "completed" | "high"
@@ -472,7 +473,7 @@ export default function TodoList({ filter }: TodoListProps) {
                     {!user ? (
                         <p className="text-center text-muted-foreground py-4">Please login to view your tasks</p>
                     ) : isLoading ? (
-                        <p className="text-center text-muted-foreground py-4">Loading tasks...</p>
+                        <TodoSkeleton />
                     ) : filteredTodos.length === 0 ? (
                         <p className="text-center text-muted-foreground py-4">
                             No tasks {filter === "completed" ? "completed" : filter === "pending" ? "pending" : ""}.
