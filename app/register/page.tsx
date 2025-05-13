@@ -161,6 +161,7 @@ export default function RegisterPage() {
                             <Input
                                 id="password"
                                 type="password"
+                                placeholder="********"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
@@ -171,6 +172,7 @@ export default function RegisterPage() {
                             <Input
                                 id="confirmPassword"
                                 type="password"
+                                placeholder="********"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 required
