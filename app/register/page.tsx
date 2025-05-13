@@ -25,12 +25,12 @@ export default function RegisterPage() {
         e.preventDefault()
 
         if (password !== confirmPassword) {
-            toast.error("Las contraseñas no coinciden")
+            toast.error("Passwords do not match")
             return
         }
 
         if (password.length < 6) {
-            toast.error("La contraseña debe tener al menos 6 caracteres")
+            toast.error("Password must be at least 6 characters")
             return
         }
 
@@ -49,14 +49,14 @@ export default function RegisterPage() {
             })
 
             if (error) {
-                toast.error(error.message || "Error al crear cuenta", {
-                    description: error instanceof Error ? error.message : "Error desconocido"
+                toast.error(error.message || "Error creating account", {
+                    description: error instanceof Error ? error.message : "Unknown error"
                 })
                 return
             }
 
-            toast.success("Cuenta creada exitosamente", {
-                description: `Se ha enviado un email a ${data.user?.email}`
+            toast.success("Account created successfully", {
+                description: `An email has been sent to ${data.user?.email}`
             })
 
             // Guardar el email registrado y mostrar alerta
@@ -65,7 +65,7 @@ export default function RegisterPage() {
 
         } catch (error) {
             console.error("Error inesperado: ", error)
-            toast.error("Error al conectar con el servidor")
+            toast.error("Error connecting to the server")
         } finally {
             setIsLoading(false)
         }
@@ -80,18 +80,18 @@ export default function RegisterPage() {
             })
 
             if (error) {
-                toast.error("Error al iniciar sesión", {
+                toast.error("Error logging in", {
                     description: error.message
                 })
                 return
             }
 
-            console.log("Inicio de sesión exitoso tras confirmar email:", data.user?.email)
+            console.log("Login successful after confirming email:", data.user?.email)
             // Redirigir al dashboard
             router.push("/dashboard")
         } catch (error) {
             console.error("Error inesperado:", error)
-            toast.error("Error al iniciar sesión")
+            toast.error("Error logging in")
         }
     }
 
@@ -104,11 +104,11 @@ export default function RegisterPage() {
             <AlertDialog open={showEmailAlert} onOpenChange={setShowEmailAlert}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Confirma tu correo electrónico</AlertDialogTitle>
+                        <AlertDialogTitle>Confirm your email</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Hemos enviado un correo de confirmación a <strong>{registeredEmail}</strong>.
-                            Por favor, revisa tu bandeja de entrada y haz clic en el enlace de confirmación.
-                            Después de confirmar, puedes continuar.
+                            We have sent a confirmation email to <strong>{registeredEmail}</strong>.
+                            Please check your inbox and click on the confirmation link.
+                            After confirming, you can continue.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="flex flex-col sm:flex-row gap-2">
@@ -117,12 +117,12 @@ export default function RegisterPage() {
                             className="w-full sm:w-auto"
                             onClick={goToGmail}
                         >
-                            Ir a Gmail
+                            Go to Gmail
                         </Button>
                         <div className="flex justify-end gap-2 w-full">
-                            <AlertDialogCancel>Cerrar</AlertDialogCancel>
+                            <AlertDialogCancel>Close</AlertDialogCancel>
                             <AlertDialogAction onClick={handleConfirmation}>
-                                He confirmado mi email
+                                I have confirmed my email
                             </AlertDialogAction>
                         </div>
                     </AlertDialogFooter>
@@ -130,34 +130,34 @@ export default function RegisterPage() {
             </AlertDialog>
             <Card className="w-full max-w-md">
                 <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl font-bold">Crear Cuenta</CardTitle>
-                    <CardDescription>Ingresa tus datos para crear una nueva cuenta</CardDescription>
+                    <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
+                    <CardDescription>Enter your data to create a new account</CardDescription>
                 </CardHeader>
                 <form onSubmit={handleSubmit}>
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="name">Nombre completo</Label>
+                            <Label htmlFor="name">Full Name</Label>
                             <Input
                                 id="name"
-                                placeholder="Nombre Apellido"
+                                placeholder="Full Name"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 required
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="email">Correo electrónico</Label>
+                            <Label htmlFor="email">Email</Label>
                             <Input
                                 id="email"
                                 type="email"
-                                placeholder="usuario@ejemplo.com"
+                                placeholder="user@example.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="password">Contraseña</Label>
+                            <Label htmlFor="password">Password</Label>
                             <Input
                                 id="password"
                                 type="password"
@@ -167,7 +167,7 @@ export default function RegisterPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
+                            <Label htmlFor="confirmPassword">Confirm Password</Label>
                             <Input
                                 id="confirmPassword"
                                 type="password"
@@ -179,12 +179,12 @@ export default function RegisterPage() {
                     </CardContent>
                     <CardFooter className="flex flex-col">
                         <Button type="submit" className="w-full" disabled={isLoading}>
-                            {isLoading ? "Creando cuenta..." : "Crear Cuenta"}
+                            {isLoading ? "Creating account..." : "Create Account"}
                         </Button>
                         <p className="mt-4 text-center text-sm text-muted-foreground">
-                            ¿Ya tienes una cuenta?{" "}
+                            Already have an account?{" "}
                             <Button variant="link" className="p-0 font-normal" asChild>
-                                <Link href="/login">Inicia sesión</Link>
+                                <Link href="/login">Login</Link>
                             </Button>
                         </p>
                     </CardFooter>

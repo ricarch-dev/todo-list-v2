@@ -21,23 +21,22 @@ export default function LoginPage() {
         setIsLoading(true)
 
         try {
-            console.log("Iniciando sesión con:", email)
             const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             })
 
             if (error) {
-                toast.error(error.message || "Error al iniciar sesión")
+                toast.error(error.message || "Error logging in")
             } else {
-                toast.success("Inicio de sesión exitoso", {
-                    description: `Bienvenido ${data.user?.email}`
+                toast.success("Login successful", {
+                    description: `Welcome ${data.user?.email}`
                 })
                 router.push("/dashboard")
             }
         } catch (error) {
-            toast.error("Error inesperado", {
-                description: error instanceof Error ? error.message : "Error desconocido"
+            toast.error("Unexpected error", {
+                description: error instanceof Error ? error.message : "Unknown error"
             })
         } finally {
             setIsLoading(false)
@@ -48,13 +47,13 @@ export default function LoginPage() {
         <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
             <Card className="w-full max-w-md">
                 <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl font-bold">Iniciar Sesión</CardTitle>
-                    <CardDescription>Ingresa tus credenciales para acceder a tu cuenta</CardDescription>
+                    <CardTitle className="text-2xl font-bold">Login</CardTitle>
+                    <CardDescription>Enter your credentials to access your account</CardDescription>
                 </CardHeader>
                 <form onSubmit={handleSubmit}>
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="email">Correo electrónico</Label>
+                            <Label htmlFor="email">Email</Label>
                             <Input
                                 id="email"
                                 type="email"
@@ -66,9 +65,9 @@ export default function LoginPage() {
                         </div>
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <Label htmlFor="password">Contraseña</Label>
+                                <Label htmlFor="password">Password</Label>
                                 <Button variant="link" size="sm" className="px-0 font-normal" asChild>
-                                    <Link href="/recuperar-contrasena">¿Olvidaste tu contraseña?</Link>
+                                    <Link href="/recuperar-contrasena">Forgot your password?</Link>
                                 </Button>
                             </div>
                             <Input
@@ -82,12 +81,12 @@ export default function LoginPage() {
                     </CardContent>
                     <CardFooter className="flex flex-col">
                         <Button type="submit" className="w-full" disabled={isLoading}>
-                            {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
+                            {isLoading ? "Logging in..." : "Login"}
                         </Button>
                         <p className="mt-4 text-center text-sm text-muted-foreground">
-                            ¿No tienes una cuenta?{" "}
+                            Don&apos;t have an account?{" "}
                             <Button variant="link" className="p-0 font-normal" asChild>
-                                <Link href="/register">Regístrate</Link>
+                                <Link href="/register">Register</Link>
                             </Button>
                         </p>
                     </CardFooter>
