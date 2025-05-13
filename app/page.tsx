@@ -8,7 +8,7 @@ import { Trash2, LogOut } from "lucide-react"
 import { getTodos, createTodo, deleteTodo, toggleTodoStatus, type Todo } from "@/lib/todos"
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { User } from '@supabase/supabase-js'
+import type { User } from '@supabase/supabase-js'
 
 export default function Home() {
   const [todos, setTodos] = useState<Todo[]>([])
