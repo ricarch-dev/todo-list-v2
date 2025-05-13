@@ -3,9 +3,11 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import type { User } from "@/types/user"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import type { User } from "@supabase/supabase-js"
+import { supabase } from "@/lib/supabase"
+import { toast } from "sonner"
 
 interface DashboardHeaderProps {
     user: User
@@ -14,17 +16,22 @@ interface DashboardHeaderProps {
 export default function DashboardHeader({ user }: DashboardHeaderProps) {
     const router = useRouter()
 
-    const handleLogout = () => {
-        localStorage.removeItem("user")
-        localStorage.removeItem("todos")
-        router.push("/login")
+    const handleLogout = async () => {
+        try {
+            await supabase.auth.signOut()
+            toast.success("Sesión cerrada correctamente")
+            router.push("/login")
+        } catch (error) {
+            console.error("Error al cerrar sesión:", error)
+            toast.error("Error al cerrar sesión")
+        }
     }
 
-    const getInitials = (name: string) => {
-        return name
-            .split(" ")
-            .map((n) => n[0])
-            .join("")
+    const getInitials = (email: string) => {
+        // Si no hay nombre disponible, usamos el email
+        return email
+            .split("@")[0]
+            .substring(0, 2)
             .toUpperCase()
     }
 
@@ -40,15 +47,15 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                                 <Avatar>
-                                    <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                                    <AvatarFallback>{getInitials(user.email || "")}</AvatarFallback>
                                 </Avatar>
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <div className="flex items-center justify-start gap-2 p-2">
                                 <div className="flex flex-col space-y-1 leading-none">
-                                    <p className="font-medium">{user.name}</p>
-                                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                                    <p className="font-medium">{user.email}</p>
+                                    <p className="text-sm text-muted-foreground">{user.id.substring(0, 8)}</p>
                                 </div>
                             </div>
                             <DropdownMenuSeparator />

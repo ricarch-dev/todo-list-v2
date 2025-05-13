@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -10,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
+import { supabase } from "@/lib/supabase"
 
 export default function RegisterPage() {
     const [name, setName] = useState("")
@@ -19,7 +18,7 @@ export default function RegisterPage() {
     const [isLoading, setIsLoading] = useState(false)
     const router = useRouter()
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
         if (password !== confirmPassword) {
@@ -27,22 +26,55 @@ export default function RegisterPage() {
             return
         }
 
+        if (password.length < 6) {
+            toast.error("La contraseña debe tener al menos 6 caracteres")
+            return
+        }
+
         setIsLoading(true)
 
-        // Simulación de registro
-        setTimeout(() => {
-            localStorage.setItem(
-                "user",
-                JSON.stringify({
-                    id: "1",
-                    name,
-                    email,
-                }),
-            )
-            toast.success("Tu cuenta ha sido creada exitosamente")
+        try {
+            // Registrar usuario con Supabase
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        name: name,
+                    },
+                },
+            })
+
+            if (error) {
+                console.error("Error al crear cuenta:", error)
+                toast.error(error.message || "Error al crear cuenta")
+                return
+            }
+
+            console.log("Cuenta creada exitosamente", data)
+            toast.success("Cuenta creada exitosamente")
+
+            // Iniciar sesión automáticamente
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            })
+
+            if (signInError) {
+                console.error("Error al iniciar sesión automáticamente:", signInError)
+                toast.error("Cuenta creada pero hubo un problema al iniciar sesión automáticamente")
+                router.push("/login")
+                return
+            }
+
+            // Redirigir al dashboard
             router.push("/dashboard")
+        } catch (error) {
+            console.error("Error inesperado: ", error)
+            toast.error("Error al conectar con el servidor")
+        } finally {
             setIsLoading(false)
-        }, 1000)
+        }
     }
 
     return (

@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import DashboardHeader from "@/components/dashboard-header"
 import TodoList from "@/components/todo-list"
-import type { User } from "@/types/user"
+import { supabase } from "@/lib/supabase"
+import type { User } from "@supabase/supabase-js"
+import { toast } from "sonner"
 
 export default function DashboardPage() {
     const router = useRouter()
@@ -13,23 +15,51 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        // Verificar si el usuario está autenticado
-        const storedUser = localStorage.getItem("user")
-        if (!storedUser) {
-            router.push("/login")
-            return
+        // Verificar si el usuario está autenticado con Supabase
+        const checkUser = async () => {
+            try {
+                console.log("Dashboard - Verificando sesión...")
+                const { data: { user }, error } = await supabase.auth.getUser()
+
+                if (error) {
+                    console.error("Error al obtener usuario:", error)
+                    toast.error("Error al verificar tu sesión")
+                    router.push("/login")
+                    return
+                }
+
+                console.log("Dashboard - Usuario:", user ? "Autenticado" : "No autenticado")
+
+                if (!user) {
+                    console.log("Dashboard - Usuario no autenticado, redirigiendo a login")
+                    router.push("/login")
+                    return
+                }
+
+                console.log("Dashboard - Usuario autenticado:", user.email)
+                setUser(user)
+            } catch (error) {
+                console.error("Error al verificar usuario:", error)
+                toast.error("Error inesperado al verificar tu sesión")
+                router.push("/login")
+            } finally {
+                setLoading(false)
+            }
         }
 
-        setUser(JSON.parse(storedUser))
-        setLoading(false)
+        checkUser()
     }, [router])
 
-    if (loading || !user) {
+    if (loading) {
         return (
             <div className="flex min-h-screen items-center justify-center">
                 <p>Cargando...</p>
             </div>
         )
+    }
+
+    if (!user) {
+        return null // No debería mostrarse, pero por seguridad
     }
 
     return (

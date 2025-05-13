@@ -1,15 +1,14 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
+import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
     const [email, setEmail] = useState("")
@@ -17,27 +16,31 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false)
     const router = useRouter()
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setIsLoading(true)
 
-        // Simulación de inicio de sesión
-        setTimeout(() => {
-            if (email === "usuario@ejemplo.com" && password === "password") {
-                localStorage.setItem(
-                    "user",
-                    JSON.stringify({
-                        id: "1",
-                        name: "Usuario Ejemplo",
-                        email,
-                    }),
-                )
-                router.push("/dashboard")
+        try {
+            console.log("Iniciando sesión con:", email)
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            })
+
+            if (error) {
+                console.error("Error de autenticación:", error)
+                toast.error(error.message || "Error al iniciar sesión")
             } else {
-                toast.error("Credenciales incorrectas. Intenta con usuario@ejemplo.com y password")
+                console.log("Inicio de sesión exitoso, usuario:", data.user?.id)
+                toast.success("Inicio de sesión exitoso")
+                router.push("/dashboard")
             }
+        } catch (error) {
+            console.error("Error inesperado:", error)
+            toast.error("Error al conectar con el servidor")
+        } finally {
             setIsLoading(false)
-        }, 1000)
+        }
     }
 
     return (
