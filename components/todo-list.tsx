@@ -22,10 +22,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import type { Todo, Prioridad, Categoria } from "@/types/todo"
+import type { Category, Priority, Todo } from "@/types/todo"
+import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
+import type { User } from "@supabase/supabase-js"
+import { getCategoryColor } from "@/lib/utils"
+import { getPriorityColor } from "@/lib/utils"
 
 interface TodoListProps {
-    filter: "todos" | "pendientes" | "completadas" | "alta"
+    filter: "todos" | "pending" | "completed" | "high"
 }
 
 export default function TodoList({ filter }: TodoListProps) {
@@ -36,102 +41,290 @@ export default function TodoList({ filter }: TodoListProps) {
     const [todoTitle, setTodoTitle] = useState("")
     const [todoDescription, setTodoDescription] = useState("")
     const [todoDueDate, setTodoDueDate] = useState("")
-    const [todoPrioridad, setTodoPrioridad] = useState<Prioridad>("normal")
-    const [todoCategoria, setTodoCategoria] = useState<Categoria>("personal")
+    const [todoPriority, setTodoPriority] = useState<Priority>("normal")
+    const [todoCategory, setTodoCategory] = useState<Category>("personal")
     const [isEditing, setIsEditing] = useState(false)
     const [editingTodoId, setEditingTodoId] = useState<string | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const [user, setUser] = useState<User | null>(null)
+    const router = useRouter()
 
-    // Cargar todos del localStorage
+    // Comprobar si hay un usuario autenticado
     useEffect(() => {
-        const storedTodos = localStorage.getItem("todos")
-        if (storedTodos) {
-            setTodos(JSON.parse(storedTodos))
+        const checkUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+
+            if (!user) {
+                // Redirigir al login si no hay usuario
+                router.push('/login')
+                return
+            }
+
+            setUser(user)
         }
-    }, [])
 
-    // Guardar todos en localStorage cuando cambien
+        checkUser()
+    }, [router])
+
+    // Suscribirse a cambios de autenticación
     useEffect(() => {
-        localStorage.setItem("todos", JSON.stringify(todos))
-    }, [todos])
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (event, session) => {
+                if (event === 'SIGNED_IN' && session?.user) {
+                    setUser(session.user)
+                } else if (event === 'SIGNED_OUT') {
+                    router.push('/login')
+                }
+            }
+        )
+
+        return () => {
+            subscription.unsubscribe()
+        }
+    }, [router])
+
+    // Cargar todos de Supabase
+    useEffect(() => {
+        const fetchTodos = async () => {
+            if (!user) return
+
+            try {
+                setIsLoading(true)
+                const { data, error } = await supabase
+                    .from('todos')
+                    .select('*')
+                    .eq('user_id', user.id)
+
+                if (error) {
+                    throw error
+                }
+
+                if (data) {
+                    setTodos(data)
+                }
+            } catch (error) {
+                toast.error('Error loading tasks', {
+                    description: 'Please try again ' + error,
+                })
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
+        if (user) {
+            fetchTodos()
+
+            // Suscripción en tiempo real a cambios en los todos para este usuario
+            const todosSubscription = supabase
+                .channel('todos-changes')
+                .on('postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'todos',
+                        filter: `user_id=eq.${user.id}`
+                    },
+                    async () => {
+                        const { data } = await supabase
+                            .from('todos')
+                            .select('*')
+                            .eq('user_id', user.id)
+
+                        if (data) {
+                            setTodos(data)
+                        }
+                    }
+                )
+                .subscribe()
+
+            return () => {
+                supabase.removeChannel(todosSubscription)
+            }
+        }
+    }, [user])
 
     // Filtrar todos según el filtro seleccionado
     useEffect(() => {
         switch (filter) {
-            case "pendientes":
+            case "pending":
                 setFilteredTodos(todos.filter((todo) => !todo.completed))
                 break
-            case "completadas":
+            case "completed":
                 setFilteredTodos(todos.filter((todo) => todo.completed))
                 break
-            case "alta":
-                setFilteredTodos(todos.filter((todo) => todo.prioridad === "alta"))
+            case "high":
+                setFilteredTodos(todos.filter((todo) => todo.priority === "high"))
                 break
             default:
                 setFilteredTodos(todos)
         }
     }, [todos, filter])
 
-    const addTodo = (e: React.FormEvent) => {
+    const addTodo = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (newTodo.trim() === "") return
+        if (newTodo.trim() === "" || !user) return
 
-        const todo: Todo = {
-            id: Date.now().toString(),
-            title: newTodo,
-            description: "",
-            completed: false,
-            createdAt: new Date().toISOString(),
-            dueDate: null,
-            prioridad: "normal",
-            categoria: "personal",
-        }
+        setIsLoading(true)
 
-        setTodos([...todos, todo])
-        setNewTodo("")
-        toast("Tarea creada", {
-            description: "La tarea ha sido creada exitosamente",
-        })
-    }
+        try {
+            const todo = {
+                title: newTodo,
+                description: "",
+                completed: false,
+                created_at: new Date().toISOString(),
+                dueDate: null,
+                priority: "normal" as Priority,
+                category: "personal" as Category,
+                user_id: user.id
+            }
 
-    const toggleTodo = (id: string) => {
-        setTodos(todos.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)))
-    }
+            const { data, error } = await supabase
+                .from('todos')
+                .insert(todo)
+                .select()
 
-    const deleteTodo = (id: string) => {
-        setTodos(todos.filter((todo) => todo.id !== id))
-        toast("Tarea eliminada", {
-            description: "La tarea ha sido eliminada exitosamente",
-        })
-    }
+            if (error) {
+                throw error
+            }
 
-    const handleCreateTodo = () => {
-        if (todoTitle.trim() === "") return
+            // Actualizar el estado local inmediatamente
+            if (data && data.length > 0) {
+                setTodos(prevTodos => [...prevTodos, data[0]])
+            }
 
-        const todo: Todo = {
-            id: isEditing && editingTodoId ? editingTodoId : Date.now().toString(),
-            title: todoTitle,
-            description: todoDescription,
-            completed: false,
-            createdAt: new Date().toISOString(),
-            dueDate: todoDueDate ? todoDueDate : null,
-            prioridad: todoPrioridad,
-            categoria: todoCategoria,
-        }
-
-        if (isEditing && editingTodoId) {
-            setTodos(todos.map((t) => (t.id === editingTodoId ? todo : t)))
-            toast("Tarea actualizada", {
-                description: "La tarea ha sido actualizada exitosamente",
+            setNewTodo("")
+            toast.success("Task created", {
+                description: "The task has been created successfully",
             })
-        } else {
-            setTodos([...todos, todo])
-            toast("Tarea creada", {
-                description: "La tarea ha sido creada exitosamente",
-            })
+        } catch (error) {
+            console.error('Error adding todo:', error)
+            toast.error('Error creating task')
+        } finally {
+            setIsLoading(false)
         }
+    }
 
-        resetForm()
-        setIsDialogOpen(false)
+    const toggleTodo = async (id: string, completed: boolean) => {
+        if (!user) return
+
+        try {
+            const { error } = await supabase
+                .from('todos')
+                .update({ completed: !completed })
+                .eq('id', id)
+                .eq('user_id', user.id)
+
+            if (error) {
+                throw error
+            }
+
+            // Actualizar el estado local inmediatamente
+            setTodos(prevTodos =>
+                prevTodos.map(todo =>
+                    todo.id === id ? { ...todo, completed: !completed } : todo
+                )
+            )
+        } catch (error) {
+            console.error('Error toggling todo:', error)
+            toast.error('Error updating task')
+        }
+    }
+
+    const deleteTodo = async (id: string) => {
+        if (!user) return
+
+        try {
+            const { error } = await supabase
+                .from('todos')
+                .delete()
+                .eq('id', id)
+                .eq('user_id', user.id)
+
+            if (error) {
+                throw error
+            }
+
+            // Actualizar el estado local inmediatamente
+            setTodos(prevTodos => prevTodos.filter(todo => todo.id !== id))
+
+            toast.success("Task deleted", {
+                description: "The task has been deleted successfully",
+            })
+        } catch (error) {
+            console.error('Error deleting todo:', error)
+            toast.error('Error deleting task')
+        }
+    }
+
+    const handleCreateTodo = async () => {
+        if (todoTitle.trim() === "" || !user) return
+
+        setIsLoading(true)
+
+        try {
+            const todo = {
+                title: todoTitle,
+                description: todoDescription,
+                completed: false,
+                created_at: new Date().toISOString(),
+                dueDate: todoDueDate ? todoDueDate : null,
+                priority: todoPriority,
+                category: todoCategory,
+                user_id: user.id
+            }
+
+            if (isEditing && editingTodoId) {
+                const { data, error } = await supabase
+                    .from('todos')
+                    .update(todo)
+                    .eq('id', editingTodoId)
+                    .eq('user_id', user.id)
+                    .select()
+
+                if (error) {
+                    throw error
+                }
+
+                // Actualizar el estado local inmediatamente
+                if (data && data.length > 0) {
+                    setTodos(prevTodos =>
+                        prevTodos.map(t =>
+                            t.id === editingTodoId ? data[0] : t
+                        )
+                    )
+                }
+
+                toast.success("Task updated", {
+                    description: "The task has been updated successfully",
+                })
+            } else {
+                const { data, error } = await supabase
+                    .from('todos')
+                    .insert(todo)
+                    .select()
+
+                if (error) {
+                    throw error
+                }
+
+                // Actualizar el estado local inmediatamente
+                if (data && data.length > 0) {
+                    setTodos(prevTodos => [...prevTodos, data[0]])
+                }
+
+                toast.success("Task created", {
+                    description: "The task has been created successfully",
+                })
+            }
+
+            resetForm()
+            setIsDialogOpen(false)
+        } catch (error) {
+            console.error('Error creating/updating todo:', error)
+            toast.error(isEditing ? 'Error updating task' : 'Error creating task')
+        } finally {
+            setIsLoading(false)
+        }
     }
 
     const editTodo = (todo: Todo) => {
@@ -140,8 +333,8 @@ export default function TodoList({ filter }: TodoListProps) {
         setTodoTitle(todo.title)
         setTodoDescription(todo.description || "")
         setTodoDueDate(todo.dueDate || "")
-        setTodoPrioridad(todo.prioridad)
-        setTodoCategoria(todo.categoria)
+        setTodoPriority(todo.priority)
+        setTodoCategory(todo.category)
         setIsDialogOpen(true)
     }
 
@@ -149,41 +342,17 @@ export default function TodoList({ filter }: TodoListProps) {
         setTodoTitle("")
         setTodoDescription("")
         setTodoDueDate("")
-        setTodoPrioridad("normal")
-        setTodoCategoria("personal")
+        setTodoPriority("normal")
+        setTodoCategory("personal")
         setIsEditing(false)
         setEditingTodoId(null)
-    }
-
-    const getPrioridadColor = (prioridad: Prioridad) => {
-        switch (prioridad) {
-            case "alta":
-                return "bg-red-100 text-red-800 hover:bg-red-200"
-            case "normal":
-                return "bg-blue-100 text-blue-800 hover:bg-blue-200"
-            case "baja":
-                return "bg-green-100 text-green-800 hover:bg-green-200"
-        }
-    }
-
-    const getCategoriaColor = (categoria: Categoria) => {
-        switch (categoria) {
-            case "trabajo":
-                return "bg-purple-100 text-purple-800 hover:bg-purple-200"
-            case "personal":
-                return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-            case "estudio":
-                return "bg-cyan-100 text-cyan-800 hover:bg-cyan-200"
-            case "hogar":
-                return "bg-pink-100 text-pink-800 hover:bg-pink-200"
-        }
     }
 
     return (
         <Card className="shadow-lg">
             <CardHeader>
                 <div className="flex items-center justify-between">
-                    <CardTitle>Mis Tareas</CardTitle>
+                    <CardTitle>My Tasks</CardTitle>
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                         <DialogTrigger asChild>
                             <Button
@@ -191,40 +360,41 @@ export default function TodoList({ filter }: TodoListProps) {
                                     resetForm()
                                     setIsDialogOpen(true)
                                 }}
+                                disabled={isLoading || !user}
                             >
                                 <PlusCircle className="mr-2 h-4 w-4" />
-                                Nueva Tarea
+                                New Task
                             </Button>
                         </DialogTrigger>
                         <DialogContent>
                             <DialogHeader>
-                                <DialogTitle>{isEditing ? "Editar Tarea" : "Crear Nueva Tarea"}</DialogTitle>
+                                <DialogTitle>{isEditing ? "Edit Task" : "Create New Task"}</DialogTitle>
                                 <DialogDescription>
-                                    {isEditing ? "Actualiza los detalles de tu tarea." : "Añade los detalles de tu nueva tarea."}
+                                    {isEditing ? "Edit the details of your task." : "Add the details of your new task."}
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="title">Título</Label>
+                                    <Label htmlFor="title">Title</Label>
                                     <Input
                                         id="title"
-                                        placeholder="Título de la tarea"
+                                        placeholder="Title of the task"
                                         value={todoTitle}
                                         onChange={(e) => setTodoTitle(e.target.value)}
                                         required
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="description">Descripción (opcional)</Label>
+                                    <Label htmlFor="description">Description (optional)</Label>
                                     <Input
                                         id="description"
-                                        placeholder="Descripción de la tarea"
+                                        placeholder="Description of the task"
                                         value={todoDescription}
                                         onChange={(e) => setTodoDescription(e.target.value)}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="dueDate">Fecha de vencimiento (opcional)</Label>
+                                    <Label htmlFor="dueDate">Due Date (optional)</Label>
                                     <Input
                                         id="dueDate"
                                         type="date"
@@ -234,29 +404,29 @@ export default function TodoList({ filter }: TodoListProps) {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label htmlFor="prioridad">Prioridad</Label>
-                                        <Select value={todoPrioridad} onValueChange={(value) => setTodoPrioridad(value as Prioridad)}>
+                                        <Label htmlFor="prioridad">Priority</Label>
+                                        <Select value={todoPriority} onValueChange={(value) => setTodoPriority(value as Priority)}>
                                             <SelectTrigger id="prioridad">
-                                                <SelectValue placeholder="Seleccionar prioridad" />
+                                                <SelectValue placeholder="Select priority" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="alta">Alta</SelectItem>
+                                                <SelectItem value="high">High</SelectItem>
                                                 <SelectItem value="normal">Normal</SelectItem>
-                                                <SelectItem value="baja">Baja</SelectItem>
+                                                <SelectItem value="low">Low</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="categoria">Categoría</Label>
-                                        <Select value={todoCategoria} onValueChange={(value) => setTodoCategoria(value as Categoria)}>
+                                        <Label htmlFor="categoria">Category</Label>
+                                        <Select value={todoCategory} onValueChange={(value) => setTodoCategory(value as Category)}>
                                             <SelectTrigger id="categoria">
-                                                <SelectValue placeholder="Seleccionar categoría" />
+                                                <SelectValue placeholder="Select category" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="personal">Personal</SelectItem>
-                                                <SelectItem value="trabajo">Trabajo</SelectItem>
-                                                <SelectItem value="estudio">Estudio</SelectItem>
-                                                <SelectItem value="hogar">Hogar</SelectItem>
+                                                <SelectItem value="work">Work</SelectItem>
+                                                <SelectItem value="study">Study</SelectItem>
+                                                <SelectItem value="home">Home</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -269,35 +439,43 @@ export default function TodoList({ filter }: TodoListProps) {
                                         resetForm()
                                         setIsDialogOpen(false)
                                     }}
+                                    disabled={isLoading}
                                 >
-                                    Cancelar
+                                    Cancel
                                 </Button>
-                                <Button onClick={handleCreateTodo}>{isEditing ? "Actualizar" : "Crear"}</Button>
+                                <Button onClick={handleCreateTodo} disabled={isLoading}>
+                                    {isEditing ? "Update" : "Create"}
+                                </Button>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
                 </div>
-                <CardDescription>Gestiona tus tareas diarias</CardDescription>
+                <CardDescription>Manage your daily tasks</CardDescription>
             </CardHeader>
             <CardContent>
                 <form onSubmit={addTodo} className="flex items-center space-x-2 mb-4">
                     <Input
                         type="text"
-                        placeholder="Añadir tarea rápida..."
+                        placeholder="Add a quick task..."
                         value={newTodo}
                         onChange={(e) => setNewTodo(e.target.value)}
                         className="flex-1"
+                        disabled={isLoading || !user}
                     />
-                    <Button type="submit" size="icon">
+                    <Button type="submit" size="icon" disabled={isLoading || !user}>
                         <PlusCircle className="h-5 w-5" />
-                        <span className="sr-only">Añadir tarea</span>
+                        <span className="sr-only">Add task</span>
                     </Button>
                 </form>
 
                 <div className="space-y-3">
-                    {filteredTodos.length === 0 ? (
+                    {!user ? (
+                        <p className="text-center text-muted-foreground py-4">Please login to view your tasks</p>
+                    ) : isLoading ? (
+                        <p className="text-center text-muted-foreground py-4">Loading tasks...</p>
+                    ) : filteredTodos.length === 0 ? (
                         <p className="text-center text-muted-foreground py-4">
-                            No hay tareas {filter === "completadas" ? "completadas" : filter === "pendientes" ? "pendientes" : ""}.
+                            No tasks {filter === "completed" ? "completed" : filter === "pending" ? "pending" : ""}.
                         </p>
                     ) : (
                         filteredTodos.map((todo) => (
@@ -310,7 +488,7 @@ export default function TodoList({ filter }: TodoListProps) {
                                         <Checkbox
                                             id={`todo-${todo.id}`}
                                             checked={todo.completed}
-                                            onCheckedChange={() => toggleTodo(todo.id)}
+                                            onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
                                             className="mt-1"
                                         />
                                         <div>
@@ -340,29 +518,30 @@ export default function TodoList({ filter }: TodoListProps) {
                                                         </span>
                                                     </Badge>
                                                 )}
-                                                <Badge className={getPrioridadColor(todo.prioridad)}>
-                                                    {todo.prioridad.charAt(0).toUpperCase() + todo.prioridad.slice(1)}
+                                                <Badge className={getPriorityColor(todo.priority)}>
+                                                    {todo.priority.charAt(0).toUpperCase() + todo.priority.slice(1)}
                                                 </Badge>
-                                                <Badge className={getCategoriaColor(todo.categoria)}>
+                                                <Badge className={getCategoryColor(todo.category)}>
                                                     <Tag className="mr-1 h-3 w-3" />
-                                                    {todo.categoria.charAt(0).toUpperCase() + todo.categoria.slice(1)}
+                                                    {todo.category.charAt(0).toUpperCase() + todo.category.slice(1)}
                                                 </Badge>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Button variant="ghost" size="icon" onClick={() => editTodo(todo)} className="h-8 w-8">
+                                        <Button variant="ghost" size="icon" onClick={() => editTodo(todo)} className="h-8 w-8" disabled={isLoading}>
                                             <Edit className="h-4 w-4" />
-                                            <span className="sr-only">Editar tarea</span>
+                                            <span className="sr-only">Edit task</span>
                                         </Button>
                                         <Button
                                             variant="ghost"
                                             size="icon"
                                             onClick={() => deleteTodo(todo.id)}
                                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                            disabled={isLoading}
                                         >
                                             <Trash2 className="h-4 w-4" />
-                                            <span className="sr-only">Eliminar tarea</span>
+                                            <span className="sr-only">Delete task</span>
                                         </Button>
                                     </div>
                                 </div>
@@ -373,10 +552,10 @@ export default function TodoList({ filter }: TodoListProps) {
             </CardContent>
             {filteredTodos.length > 0 && (
                 <CardFooter className="flex justify-between text-sm text-muted-foreground">
-                    <p>Total: {filteredTodos.length} tarea(s)</p>
+                    <p>Total: {filteredTodos.length} task(s)</p>
                     <p>
                         {filter === "todos" &&
-                            `${todos.filter((t) => t.completed).length} completadas, ${todos.filter((t) => !t.completed).length} pendientes`}
+                            `${todos.filter((t) => t.completed).length} completed, ${todos.filter((t) => !t.completed).length} pending`}
                     </p>
                 </CardFooter>
             )}

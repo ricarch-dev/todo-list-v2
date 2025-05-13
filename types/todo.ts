@@ -1,13 +1,14 @@
-export type Prioridad = "alta" | "normal" | "baja";
-export type Categoria = "personal" | "trabajo" | "estudio" | "hogar";
+export type Priority = "high" | "normal" | "low";
+export type Category = "personal" | "work" | "study" | "home";
 
 export interface Todo {
   id: string;
   title: string;
   description: string;
   completed: boolean;
-  createdAt: string;
+  created_at: string;
   dueDate: string | null;
-  prioridad: Prioridad;
-  categoria: Categoria;
+  priority: Priority;
+  category: Category;
+  user_id?: string;
 }
