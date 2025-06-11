@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import type { User } from "@supabase/supabase-js"
+import type { User } from "@/types/user"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 
@@ -19,11 +19,11 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
     const handleLogout = async () => {
         try {
             await supabase.auth.signOut()
-            toast.success("Sesión cerrada correctamente")
+            toast.success("Session closed successfully")
             router.push("/login")
         } catch (error) {
-            console.error("Error al cerrar sesión:", error)
-            toast.error("Error al cerrar sesión")
+            console.error("Error closing session:", error)
+            toast.error("Error closing session")
         }
     }
 
@@ -60,13 +60,13 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
                             </div>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem asChild>
-                                <Link href="/perfil">Perfil</Link>
+                                <Link href="/profile">Profile</Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                                <Link href="/configuracion">Configuración</Link>
+                                <Link href="/settings">Settings</Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={handleLogout}>Cerrar sesión</DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>

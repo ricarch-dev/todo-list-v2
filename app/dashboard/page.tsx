@@ -6,7 +6,7 @@ import TodoList from "@/components/todo-list"
 import { supabase } from "@/lib/supabase"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import type { User } from "@supabase/supabase-js"
+import type { User } from "@/types/user"
 
 export default function DashboardPage() {
     const [user, setUser] = useState<User | null>(null)
@@ -16,14 +16,27 @@ export default function DashboardPage() {
     useEffect(() => {
         const getUser = async () => {
             try {
-                const { data: { user } } = await supabase.auth.getUser()
+                const { data: { user: supabaseUser } } = await supabase.auth.getUser()
 
-                if (!user) {
+                if (!supabaseUser) {
                     router.push('/login')
                     return
                 }
 
-                setUser(user)
+                const adaptedUser: User = {
+                    id: supabaseUser.id,
+                    email: supabaseUser.email || '',
+                    name: supabaseUser.user_metadata?.name || '',
+                    avatar: supabaseUser.user_metadata?.avatar_url,
+                    bio: supabaseUser.user_metadata?.bio,
+                    ubicacion: supabaseUser.user_metadata?.ubicacion,
+                    telefono: supabaseUser.user_metadata?.telefono,
+                    sitioWeb: supabaseUser.user_metadata?.sitioWeb,
+                    fechaRegistro: supabaseUser.created_at,
+                    verificado: supabaseUser.email_confirmed_at != null
+                }
+
+                setUser(adaptedUser)
             } catch (error) {
                 console.error(error)
                 router.push('/login')
@@ -35,7 +48,7 @@ export default function DashboardPage() {
         getUser()
     }, [router])
 
-    if (loading) return <div>Cargando...</div>
+    if (loading) return <div>Loading...</div>
     if (!user) return null
 
     return (
@@ -47,24 +60,24 @@ export default function DashboardPage() {
                     <Tabs defaultValue="todos">
                         <TabsList className="mb-4">
                             <TabsTrigger value="todos">All</TabsTrigger>
-                            <TabsTrigger value="pendientes">Pending</TabsTrigger>
-                            <TabsTrigger value="completadas">Completed</TabsTrigger>
-                            <TabsTrigger value="alta">High Priority</TabsTrigger>
+                            <TabsTrigger value="pending">Pending</TabsTrigger>
+                            <TabsTrigger value="completed">Completed</TabsTrigger>
+                            <TabsTrigger value="high">High Priority</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="todos">
                             <TodoList filter="todos" />
                         </TabsContent>
 
-                        <TabsContent value="pendientes">
+                        <TabsContent value="pending">
                             <TodoList filter="pending" />
                         </TabsContent>
 
-                        <TabsContent value="completadas">
+                        <TabsContent value="completed">
                             <TodoList filter="completed" />
                         </TabsContent>
 
-                        <TabsContent value="alta">
+                        <TabsContent value="high">
                             <TodoList filter="high" />
                         </TabsContent>
                     </Tabs>
