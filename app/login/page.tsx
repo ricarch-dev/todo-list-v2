@@ -20,12 +20,10 @@ export default function LoginPage() {
         e.preventDefault()
         setIsLoading(true)
 
-        try {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            })
-
+        supabase.auth.signInWithPassword({
+            email,
+            password,
+        }).then(({ data, error }) => {
             if (error) {
                 toast.error(error.message || "Error logging in")
             } else {
@@ -34,13 +32,13 @@ export default function LoginPage() {
                 })
                 router.push("/dashboard")
             }
-        } catch (error) {
+        }).catch((error) => {
             toast.error("Unexpected error", {
                 description: error instanceof Error ? error.message : "Unknown error"
             })
-        } finally {
+        }).finally(() => {
             setIsLoading(false)
-        }
+        })
     }
 
     return (
@@ -66,9 +64,11 @@ export default function LoginPage() {
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="password">Password</Label>
-                                <Button variant="link" size="sm" className="px-0 font-normal" asChild>
-                                    <Link href="/recuperar-contrasena">Forgot your password?</Link>
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                    <Button variant="link" size="sm" className="px-0 font-normal" asChild>
+                                        <Link href="/forgot-password">Forgot your password?</Link>
+                                    </Button>
+                                </div>
                             </div>
                             <Input
                                 id="password"

@@ -39,7 +39,7 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
         <header className="border-b bg-background">
             <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 md:px-6">
                 <Link href="/dashboard" className="flex items-center gap-2">
-                    <span className="text-xl font-bold">Organizador de Tareas</span>
+                    <span className="text-xl font-bold">Task Manager</span>
                 </Link>
 
                 <div className="flex items-center gap-4">
